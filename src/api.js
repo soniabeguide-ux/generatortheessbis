@@ -2,7 +2,7 @@ const API_ENDPOINT = "/.netlify/functions/claude";
 
 export async function callClaude(systemPrompt, userContent, maxTokens = 1500) {
   const payload = {
-    model: "claude-sonnet-4-20250514",
+    model: "claude-sonnet-4-5",
     max_tokens: maxTokens,
     messages: [{ role: "user", content: userContent }],
   };
