@@ -150,7 +150,7 @@ h2{font-family:'Playfair Display',Georgia,serif;font-size:24pt;line-height:1.15;
 <div class="cols">${body}</div>
 <div class="foot">
   <div><div class="so">${signoff}</div><div class="auth">${author}</div></div>
-  <div class="si">${websiteFR}<br>${websiteEN}</div>
+  <div class="si">🇫🇷 ${websiteFR}<br>🇺🇸 ${websiteEN}</div>
 </div>
 </body></html>`;
 }

@@ -29,7 +29,9 @@ export default function App() {
       const text = await callClaude(SYSTEM_FR, `Voici mes notes brutes :\n\n${notes}`);
       setArticleFR(text);
       // Build meta from form directly — no extra API call needed
-      const d = new Date(formData.date);
+      // Fix timezone: parse date parts directly to avoid UTC offset shifting the day
+      const [y, mo, da] = formData.date.split("-").map(Number);
+      const d = new Date(y, mo - 1, da);
       const dateStr = d.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
       const dateEN = d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
       setMeta({
