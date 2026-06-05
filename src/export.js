@@ -1,176 +1,25 @@
-// ─── DOCX (vrai format Word) ──────────────────────────────────────────────────
-
-function parseArticleLines(content) {
-  const lines = content.split("\n");
-  const result = [];
-  for (const raw of lines) {
-    const line = raw.trim();
-    if (!line) { result.push({ type: "empty" }); continue; }
-    if (/^[IVX]+\s*—/.test(line) || /^Conclusion\b/.test(line)) {
-      result.push({ type: "heading", text: line });
-    } else if (/^\*{3}[«"]/.test(line)) {
-      const inner = line.replace(/\*{3}/g, "").trim();
-      const dashIdx = inner.search(/\s*—\s*/);
-      if (dashIdx > -1) {
-        result.push({ type: "quote", text: inner.slice(0, dashIdx).replace(/^[«"]/, "").replace(/[»"]$/, "").trim(), author: inner.slice(dashIdx).replace(/\s*—\s*/, "").trim() });
-      } else {
-        result.push({ type: "quote", text: inner.replace(/^[«"]/, "").replace(/[»"]$/, "").trim(), author: "Dr Raoul Wafo" });
-      }
-    } else if (/^\d+\./.test(line)) {
-      result.push({ type: "list", text: line.replace(/^\d+\.\s*/, "") });
-    } else if (line.startsWith("**") && line.endsWith("**")) {
-      result.push({ type: "bold", text: line.slice(2, -2) });
-    } else if (/^\[.+\]\(.+\)/.test(line)) {
-      result.push({ type: "skip" });
-    } else {
-      result.push({ type: "para", text: line });
-    }
-  }
-  return result;
-}
-
-function buildDocxXml(content, title, dateStr, lang, meta) {
-  const lines = parseArticleLines(content);
-  const artNum = meta?.article_number || "XXX";
-  const website = lang === "fr" ? "theessentialsfr.wordpress.com" : "theessentialsen.wordpress.com";
-  const category = lang === "fr" ? "FAMILLE & SAGESSE" : "FAMILY & WISDOM";
-
-  let bodyXml = "";
-
-  // Header info
-  bodyXml += para(runs([run(dateStr.toUpperCase(), { size: 18, color: "1B2B5E", font: "Arial" })]));
-  bodyXml += para(runs([run("The Essentials.", { size: 52, bold: true, color: "1B2B5E", font: "Playfair Display" })]), "center");
-  bodyXml += para(runs([run(`ARTICLE #${artNum} — ${category}`, { size: 18, color: "888888", font: "Arial" })]), "center");
-  bodyXml += para(runs([run(title || "", { size: 36, bold: true, color: "1B2B5E" })]));
-  bodyXml += para(runs([run("─────────────────────────────────────────", { size: 20, color: "C8A951" })]));
-
-  for (const l of lines) {
-    if (l.type === "empty") { bodyXml += para(runs([run("")])); }
-    else if (l.type === "heading") {
-      bodyXml += para(runs([run(l.text, { size: 26, bold: true, color: "1B2B5E" })]), "left", "180");
-    } else if (l.type === "quote") {
-      bodyXml += para(runs([
-        run(`«\u202F${l.text}\u202F»`, { size: 22, italic: true, color: "1B2B5E" }),
-        run(`  — ${l.author}`, { size: 20, bold: true, color: "555555", font: "Arial" }),
-      ]), "left", "60", "360");
-    } else if (l.type === "list") {
-      bodyXml += para(runs([run(`• ${l.text}`, { size: 22 })]), "left", "40", "360");
-    } else if (l.type === "bold") {
-      bodyXml += para(runs([run(l.text, { size: 22, bold: true })]));
-    } else if (l.type === "para") {
-      const formatted = l.text.replace(/\*\*([^*]+)\*\*/g, "%%BOLD%%$1%%ENDBOLD%%");
-      if (formatted.includes("%%BOLD%%")) {
-        const parts = formatted.split(/(%%BOLD%%.*?%%ENDBOLD%%)/g).filter(Boolean);
-        const runList = parts.map(p => {
-          if (p.startsWith("%%BOLD%%")) {
-            return run(p.replace(/%%BOLD%%|%%ENDBOLD%%/g, ""), { size: 22, bold: true });
-          }
-          return run(p, { size: 22 });
-        });
-        bodyXml += para(runs(runList));
-      } else {
-        bodyXml += para(runs([run(l.text, { size: 22 })]));
-      }
-    }
-  }
-
-  // Footer
-  bodyXml += para(runs([run("─────────────────────────────────────────", { size: 20, color: "C8A951" })]));
-  const signoff = lang === "fr" ? "On est ensemble. Et tiens bon malgré les vents contraires." : "We're in this together. And stay strong despite the contrary winds.";
-  bodyXml += para(runs([run(signoff, { size: 20, italic: true, color: "1B2B5E" })]));
-  bodyXml += para(runs([run("SBE", { size: 20, bold: true, color: "1B2B5E", font: "Arial" })]));
-  bodyXml += para(runs([run(website, { size: 18, color: "888888", font: "Arial" })]));
-
-  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<w:document xmlns:wpc="http://schemas.microsoft.com/office/word/2010/wordprocessingCanvas"
-  xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
-  xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
-<w:body>
-${bodyXml}
-<w:sectPr>
-  <w:pgSz w:w="11906" w:h="16838"/>
-  <w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1134"/>
-</w:sectPr>
-</w:body>
-</w:document>`;
-}
-
-function run(text, opts = {}) {
-  const { size = 22, bold, italic, color, font } = opts;
-  const rpr = [
-    font ? `<w:rFonts w:ascii="${font}" w:hAnsi="${font}"/>` : `<w:rFonts w:ascii="Georgia" w:hAnsi="Georgia"/>`,
-    `<w:sz w:val="${size}"/>`,
-    `<w:szCs w:val="${size}"/>`,
-    bold ? `<w:b/>` : "",
-    italic ? `<w:i/>` : "",
-    color ? `<w:color w:val="${color}"/>` : "",
-  ].join("");
-  const escaped = text
-    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-  return `<w:r><w:rPr>${rpr}</w:rPr><w:t xml:space="preserve">${escaped}</w:t></w:r>`;
-}
-
-function runs(runList) { return runList.join(""); }
-
-function para(content, jc = "both", spaceBefore = "60", indent = "") {
-  const indentXml = indent ? `<w:ind w:left="${indent}"/>` : "";
-  return `<w:p><w:pPr><w:jc w:val="${jc}"/><w:spacing w:before="${spaceBefore}" w:after="60"/>${indentXml}</w:pPr>${content}</w:p>`;
-}
-
-async function buildDocxBlob(content, title, dateStr, lang, meta) {
-  const docXml = buildDocxXml(content, title, dateStr, lang, meta);
-
-  const relsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
-</Relationships>`;
-
-  const stylesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
-  <w:docDefaults><w:rPrDefault><w:rPr>
-    <w:rFonts w:ascii="Georgia" w:hAnsi="Georgia"/>
-    <w:sz w:val="22"/><w:szCs w:val="22"/>
-  </w:rPr></w:rPrDefault></w:docDefaults>
-</w:styles>`;
-
-  const contentTypesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
-  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
-  <Default Extension="xml" ContentType="application/xml"/>
-  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
-  <Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>
-</Types>`;
-
-  const rootRelsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
-</Relationships>`;
-
-  // Build ZIP using JSZip loaded from CDN — but we're in Node/browser context
-  // Use manual zip building with fflate if available, else fall back to blob
-  const files = {
-    "[Content_Types].xml": contentTypesXml,
-    "_rels/.rels": rootRelsXml,
-    "word/document.xml": docXml,
-    "word/styles.xml": stylesXml,
-    "word/_rels/document.xml.rels": relsXml,
-  };
-
-  // Use fflate (bundled with vite) for ZIP
-  const { strToU8, zipSync } = await import("fflate");
-  const zipped = {};
-  for (const [path, content] of Object.entries(files)) {
-    zipped[path] = strToU8(content);
-  }
-  const zipData = zipSync(zipped);
-  return new Blob([zipData], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
-}
+// ─── DOCX via Netlify Function ────────────────────────────────────────────────
 
 export async function downloadDocx(content, title, dateStr, lang, meta) {
+  const artNum = meta?.article_number || "XXX";
+  const signoff = lang === "fr"
+    ? "Tiens bon, ton témoignage n'est qu'une question de temps. On est ensemble."
+    : "Stay strong, your testimony is only a matter of time. We're in this together.";
+
   try {
-    const blob = await buildDocxBlob(content, title, dateStr, lang, meta);
-    const artNum = meta?.article_number || "XXX";
+    const response = await fetch("/.netlify/functions/generate-docx", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        content, title, dateStr,
+        artNum,
+        category: lang === "fr" ? (meta?.category_fr || "FAMILLE & SAGESSE") : translateCategory(meta?.category_fr),
+        lang, signoff,
+      }),
+    });
+
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const blob = await response.blob();
     const safeTitle = (title || "article").slice(0, 35).replace(/[^\w\s-]/g, "").replace(/\s+/g, "_");
     triggerDownload(blob, `Article_${artNum}_${lang.toUpperCase()}_${safeTitle}.docx`);
     return { ok: true };
@@ -180,47 +29,57 @@ export async function downloadDocx(content, title, dateStr, lang, meta) {
   }
 }
 
-// ─── HTML / PDF ──────────────────────────────────────────────────────────────
+function translateCategory(cat) {
+  const map = {
+    "FAMILLE & SAGESSE": "FAMILY & WISDOM",
+    "FOI & SURNATUREL": "FAITH & SUPERNATURAL",
+    "PRIÈRE & INTERCESSION": "PRAYER & INTERCESSION",
+    "IDENTITÉ & DESTINÉE": "IDENTITY & DESTINY",
+    "MARIAGE & COUPLE": "MARRIAGE & RELATIONSHIPS",
+    "FINANCES & PROSPÉRITÉ": "FINANCES & PROSPERITY",
+    "LEADERSHIP & SERVICE": "LEADERSHIP & SERVICE",
+    "ÉVANGÉLISATION": "EVANGELISM",
+    "LOUANGE & ADORATION": "PRAISE & WORSHIP",
+    "AUTRE": "OTHER",
+  };
+  return map[cat] || cat;
+}
+
+// ─── HTML → PDF ───────────────────────────────────────────────────────────────
 
 function markdownToHtml(md) {
   const lines = md.split("\n");
   let html = "";
   let inOL = false;
-
   const closeList = () => { if (inOL) { html += "</ol>"; inOL = false; } };
-  const fmt = (s) =>
-    s.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
-     .replace(/\*([^*]+)\*/g, "<em>$1</em>");
+  const fmt = s => s.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>").replace(/\*([^*]+)\*/g, "<em>$1</em>");
 
   for (const rawLine of lines) {
     const line = rawLine.trim();
     if (!line) { closeList(); continue; }
     if (/^[IVX]+\s*—/.test(line) || /^Conclusion\b/.test(line)) {
-      closeList();
-      html += `<h3>${fmt(line)}</h3>`;
+      closeList(); html += `<h3>${fmt(line)}</h3>`;
     } else if (/^\d+\./.test(line)) {
       if (!inOL) { html += "<ol>"; inOL = true; }
       html += `<li>${fmt(line.replace(/^\d+\.\s*/, ""))}</li>`;
     } else if (/^\*{3}[«"]/.test(line)) {
       closeList();
       const inner = line.replace(/\*{3}/g, "").trim();
-      const dashIdx = inner.search(/\s*—\s*/);
-      if (dashIdx > -1) {
-        const quote = inner.slice(0, dashIdx).replace(/^[«"]/, "").replace(/[»"]$/, "");
-        const author = inner.slice(dashIdx).replace(/\s*—\s*/, "");
+      const di = inner.search(/\s*—\s*/);
+      if (di > -1) {
+        const quote = inner.slice(0, di).replace(/^[«"]/, "").replace(/[»"]$/, "");
+        const author = inner.slice(di).replace(/\s*—\s*/, "");
         html += `<blockquote><span class="qt">«\u202F${quote}\u202F»</span><cite>${author}</cite></blockquote>`;
       } else {
         const quote = inner.replace(/^[«"]/, "").replace(/[»"]$/, "");
         html += `<blockquote><span class="qt">«\u202F${quote}\u202F»</span><cite>Dr Raoul Wafo</cite></blockquote>`;
       }
     } else if (line.startsWith("**") && line.endsWith("**")) {
-      closeList();
-      html += `<p><strong>${line.slice(2, -2)}</strong></p>`;
+      closeList(); html += `<p><strong>${line.slice(2,-2)}</strong></p>`;
     } else if (/^\[.+\]\(.+\)/.test(line)) {
       closeList();
     } else {
-      closeList();
-      html += `<p>${fmt(line)}</p>`;
+      closeList(); html += `<p>${fmt(line)}</p>`;
     }
   }
   closeList();
@@ -233,15 +92,15 @@ export function buildPdfHtml(content, title, dateStr, lang, meta) {
   const websiteEN = "theessentialsen.wordpress.com";
   const websiteMain = lang === "fr" ? websiteFR : websiteEN;
   const otherLang = lang === "fr" ? "VERSION ANGLAISE ↗" : "VERSION FRANÇAISE ↗";
-  const category = lang === "fr" ? (meta?.category_fr || "FAMILLE & SAGESSE") : (meta?.category_en || "FAMILY & WISDOM");
+  const category = lang === "fr" ? (meta?.category_fr || "FAMILLE & SAGESSE") : translateCategory(meta?.category_fr);
   const founded = lang === "fr" ? "FONDÉ SUR LA VÉRITÉ" : "FOUNDED ON TRUTH";
+  const signoff = lang === "fr"
+    ? "Tiens bon, ton témoignage n'est qu'une question de temps. On est ensemble."
+    : "Stay strong, your testimony is only a matter of time. We're in this together.";
+  const author = "Sonia Beguide";
   const tagline = lang === "fr"
     ? "«\u202FTu n'es pas victime mais victorieuse. Le diable te hait parce qu'il te craint.\u202F»"
     : '"You are not a victim — you are victorious. The devil hates you because he fears you."';
-  const signoff = lang === "fr"
-    ? "On est ensemble. Et tiens bon malgré les vents contraires."
-    : "We're in this together. And stay strong despite the contrary winds.";
-
   const body = markdownToHtml(content);
 
   return `<!DOCTYPE html>
@@ -257,7 +116,7 @@ body{font-family:'Source Serif 4',Georgia,serif;font-size:10.5pt;color:#1a1a1a;b
 .hbar{display:flex;justify-content:space-between;border-bottom:1.5px solid #1B2B5E;padding-bottom:6px;margin-bottom:12px}
 .hbar span{font-size:7.5pt;text-transform:uppercase;letter-spacing:.8px;color:#1B2B5E;font-family:Arial,sans-serif}
 .logo{text-align:center;margin-bottom:12px}
-.logo-name{font-family:'Playfair Display',Georgia,serif;font-size:28pt;color:#1B2B5E;font-weight:700;letter-spacing:-0.5px;line-height:1}
+.logo-name{font-family:'Playfair Display',Georgia,serif;font-size:28pt;color:#1B2B5E;font-weight:700}
 .mbar{display:flex;justify-content:space-between;padding:5px 0;border-top:.5px solid #ccc;border-bottom:.5px solid #ccc;margin-bottom:14px}
 .mbar span{font-size:7.5pt;font-family:Arial,sans-serif;color:#555;text-transform:uppercase;letter-spacing:.5px}
 .atag{font-size:7.5pt;font-family:Arial,sans-serif;text-transform:uppercase;letter-spacing:1px;color:#1B2B5E;font-weight:700;margin-bottom:6px}
@@ -274,8 +133,9 @@ h2{font-family:'Playfair Display',Georgia,serif;font-size:24pt;line-height:1.15;
 .cols blockquote .qt{display:block;font-style:italic;color:#1B2B5E;font-size:10pt;line-height:1.5}
 .cols blockquote cite{display:block;font-style:normal;font-size:8pt;font-weight:600;color:#555;margin-top:3px;font-family:Arial,sans-serif;text-transform:uppercase}
 .cols p:first-of-type::first-letter{font-family:'Playfair Display';font-size:36pt;float:left;line-height:.75;padding-right:4px;padding-top:5px;color:#1B2B5E;font-weight:700}
-.foot{border-top:1.5px solid #1B2B5E;margin-top:14px;padding-top:7px;display:flex;justify-content:space-between}
-.foot .so{font-size:9pt;color:#1B2B5E;font-weight:600}
+.foot{border-top:1.5px solid #1B2B5E;margin-top:14px;padding-top:7px;display:flex;justify-content:space-between;align-items:flex-end}
+.foot .so{font-size:9pt;color:#1B2B5E;font-style:italic}
+.foot .auth{font-size:9pt;font-family:Arial,sans-serif;font-weight:700;color:#1B2B5E;margin-top:3px}
 .foot .si{font-size:7.5pt;font-family:Arial,sans-serif;color:#888;text-align:right}
 @media print{body{padding:0}@page{margin:18mm 16mm}*{print-color-adjust:exact;-webkit-print-color-adjust:exact}}
 </style>
@@ -288,22 +148,121 @@ h2{font-family:'Playfair Display',Georgia,serif;font-size:24pt;line-height:1.15;
 <h2>${title || ""}</h2>
 <div class="tbox"><p>${tagline}</p><p class="cr">— THE ESSENTIALS., ARTICLE #${artNum}</p></div>
 <div class="cols">${body}</div>
-<div class="foot"><div><div class="so">${signoff}</div><div style="font-size:8pt;font-family:Arial,sans-serif;font-weight:700;color:#1B2B5E">SBE</div></div><div class="si">${websiteFR}<br>${websiteEN}</div></div>
+<div class="foot">
+  <div><div class="so">${signoff}</div><div class="auth">${author}</div></div>
+  <div class="si">${websiteFR}<br>${websiteEN}</div>
+</div>
 </body></html>`;
 }
 
 export function downloadPdfHtml(content, title, dateStr, lang, meta) {
   const html = buildPdfHtml(content, title, dateStr, lang, meta);
   const blob = new Blob([html], { type: "text/html;charset=utf-8" });
-  const artNum = meta?.article_number || "XXX";
-  triggerDownload(blob, `The_Essentials_Article_${artNum}_${lang.toUpperCase()}.html`);
+  triggerDownload(blob, `The_Essentials_Article_${meta?.article_number || "XXX"}_${lang.toUpperCase()}.html`);
 }
 
 export function downloadText(content, title, lang, meta) {
   const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
-  const artNum = meta?.article_number || "XXX";
   const safeTitle = (title || "article").slice(0, 35).replace(/[^\w\s-]/g, "").replace(/\s+/g, "_");
-  triggerDownload(blob, `Article_${artNum}_${lang.toUpperCase()}_${safeTitle}.txt`);
+  triggerDownload(blob, `Article_${meta?.article_number || "XXX"}_${lang.toUpperCase()}_${safeTitle}.txt`);
+}
+
+// ─── Miniature ────────────────────────────────────────────────────────────────
+
+export async function downloadThumbnail(articleFR, articleEN, meta) {
+  const artNum = meta?.article_number || "XXX";
+  const titleFR = meta?.title_fr || "";
+  const titleEN = meta?.title_en || "";
+
+  const canvas = document.createElement("canvas");
+  canvas.width = 1280;
+  canvas.height = 720;
+  const ctx = canvas.getContext("2d");
+
+  // Background
+  const grad = ctx.createLinearGradient(0, 0, 1280, 720);
+  grad.addColorStop(0, "#F5F3EE");
+  grad.addColorStop(1, "#EDE8DF");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 1280, 720);
+
+  // Gold accent bar top
+  ctx.fillStyle = "#C8A951";
+  ctx.fillRect(0, 0, 1280, 6);
+
+  // FR panel (top half)
+  const drawPanel = (x, y, w, h, titleFR_text, titleEN_text) => {
+    // FR top panel
+    ctx.fillStyle = "#1B2B5E";
+    ctx.fillRect(x, y, w, h / 2 - 4);
+    ctx.fillStyle = "#C0392B";
+    ctx.font = "bold 52px Georgia, serif";
+    ctx.fillText("POURQUOI LE", x + 40, y + 70);
+    ctx.fillStyle = "#C0392B";
+    ctx.font = "bold 72px Georgia, serif";
+    ctx.fillText("DIABLE", x + 40, y + 155);
+    ctx.fillStyle = "#FFFFFF";
+    ctx.font = "bold 52px Georgia, serif";
+    ctx.fillText("HAIT LES FEMMES", x + 40, y + 230);
+
+    // Gold line
+    ctx.fillStyle = "#C8A951";
+    ctx.fillRect(x + 40, y + 250, 200, 4);
+
+    // EN bottom panel
+    ctx.fillStyle = "#EDE8DF";
+    ctx.fillRect(x, y + h / 2 + 4, w, h / 2 - 4);
+    ctx.fillStyle = "#1B2B5E";
+    ctx.font = "bold 46px Georgia, serif";
+    ctx.fillText("WHY THE", x + 40, y + h / 2 + 60);
+    ctx.fillStyle = "#C0392B";
+    ctx.font = "bold 72px Georgia, serif";
+    ctx.fillText("DEVIL", x + 40, y + h / 2 + 145);
+    ctx.fillStyle = "#1B2B5E";
+    ctx.font = "bold 46px Georgia, serif";
+    ctx.fillText("HATES WOMEN", x + 40, y + h / 2 + 210);
+  };
+
+  // Use provided titles if available
+  ctx.fillStyle = "#1B2B5E";
+  ctx.fillRect(0, 6, 1280, 714);
+
+  // Two banners
+  const bannerH = 352;
+  // FR banner
+  ctx.fillStyle = "#1B2B5E";
+  ctx.fillRect(0, 6, 1280, bannerH);
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = "bold 40px Arial, sans-serif";
+  ctx.fillText(titleFR.toUpperCase() || "ARTICLE #" + artNum, 60, 80);
+  ctx.fillStyle = "#C8A951";
+  ctx.fillRect(60, 100, 300, 4);
+  ctx.fillStyle = "rgba(255,255,255,0.15)";
+  ctx.font = "22px Arial, sans-serif";
+  ctx.fillText("The Essentials. — Publication #" + artNum, 60, 140);
+
+  // EN banner
+  ctx.fillStyle = "#F5F3EE";
+  ctx.fillRect(0, 6 + bannerH + 4, 1280, bannerH);
+  ctx.fillStyle = "#1B2B5E";
+  ctx.font = "bold 40px Arial, sans-serif";
+  ctx.fillText(titleEN.toUpperCase() || "ARTICLE #" + artNum, 60, 6 + bannerH + 80);
+  ctx.fillStyle = "#C8A951";
+  ctx.fillRect(60, 6 + bannerH + 100, 300, 4);
+  ctx.fillStyle = "#888";
+  ctx.font = "22px Arial, sans-serif";
+  ctx.fillText("The Essentials. — Publication #" + artNum, 60, 6 + bannerH + 140);
+
+  // Bottom gold bar
+  ctx.fillStyle = "#C8A951";
+  ctx.fillRect(0, 714, 1280, 6);
+
+  return new Promise(resolve => {
+    canvas.toBlob(blob => {
+      triggerDownload(blob, `Miniature_${artNum}.png`);
+      resolve({ ok: true });
+    }, "image/png");
+  });
 }
 
 function triggerDownload(blob, filename) {

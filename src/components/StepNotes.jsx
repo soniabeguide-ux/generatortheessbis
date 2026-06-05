@@ -8,27 +8,21 @@ const CATEGORIES = [
 
 export default function StepNotes({ onGenerate, loading }) {
   const today = new Date().toISOString().split("T")[0];
+  const [inputMode, setInputMode] = useState("structured"); // "structured" | "free"
   const [form, setForm] = useState({
-    date: today,
-    articleNum: "",
-    category: "FAMILLE & SAGESSE",
-    preacher: "Dr. Raoul Wafo",
-    youtube1: "",
-    youtube2: "",
-    prayerTopics: "",
-    notesI: "",
-    notesII: "",
-    notesIII: "",
-    notesIV: "",
-    citations: "",
-    conclusion: "",
+    date: today, articleNum: "", category: "FAMILLE & SAGESSE", preacher: "Dr. Raoul Wafo",
+    youtube1: "", youtube2: "", prayerTopics: "",
+    intro: "", notesI: "", notesII: "", notesIII: "", notesIV: "",
+    citations: "", conclusion: "",
   });
+  const [freeText, setFreeText] = useState("");
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   function buildNotes() {
     const d = new Date(form.date);
     const dateStr = d.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+    if (inputMode === "free") return freeText;
     return `Date : ${dateStr}
 Numéro d'article : ${form.articleNum || "XXX"}
 Catégorie : ${form.category}
@@ -36,6 +30,7 @@ Prédicateur : ${form.preacher}
 ${form.youtube1 ? `Lien YouTube principal : ${form.youtube1}` : ""}
 ${form.youtube2 ? `Lien YouTube 2ème message : ${form.youtube2}` : ""}
 ${form.prayerTopics ? `Sujets de prière : ${form.prayerTopics}` : ""}
+${form.intro ? `\nIntroduction :\n${form.intro}` : ""}
 
 I — Notes :
 ${form.notesI}
@@ -45,8 +40,8 @@ ${form.notesII}
 
 III — Notes :
 ${form.notesIII}
+${form.notesIV ? `\nIV — Notes :\n${form.notesIV}` : ""}
 
-${form.notesIV ? `IV — Notes :\n${form.notesIV}\n` : ""}
 Citations importantes :
 ${form.citations}
 
@@ -54,7 +49,9 @@ Conclusion :
 ${form.conclusion}`;
   }
 
-  const canSubmit = form.notesI.trim() && form.notesII.trim() && form.notesIII.trim() && form.citations.trim();
+  const canSubmit = inputMode === "free"
+    ? freeText.trim().length > 50
+    : form.notesI.trim() && form.notesII.trim() && form.notesIII.trim() && form.citations.trim();
 
   const inputStyle = {
     width: "100%", padding: "10px 14px", fontSize: 14, borderRadius: 8,
@@ -62,126 +59,113 @@ ${form.conclusion}`;
     fontFamily: "Arial, sans-serif", outline: "none", boxSizing: "border-box",
     transition: "border-color .2s",
   };
-  const labelStyle = {
-    display: "block", fontFamily: "Arial, sans-serif", fontSize: 11,
-    fontWeight: 700, color: "var(--navy)", textTransform: "uppercase",
-    letterSpacing: "0.7px", marginBottom: 6,
-  };
-  const sectionStyle = {
-    background: "var(--surface)", border: "1.5px solid var(--border)",
-    borderRadius: 10, padding: "20px 22px", marginBottom: 16,
-  };
-  const sectionTitle = {
-    fontFamily: "Arial, sans-serif", fontSize: 13, fontWeight: 700,
-    color: "var(--navy)", marginBottom: 16, display: "flex", alignItems: "center", gap: 8,
-  };
+  const label = (txt, req) => (
+    <label style={{ display: "block", fontFamily: "Arial, sans-serif", fontSize: 11,
+      fontWeight: 700, color: "var(--navy)", textTransform: "uppercase",
+      letterSpacing: "0.7px", marginBottom: 6 }}>
+      {txt} {req && <span style={{ color: "var(--red)" }}>*</span>}
+    </label>
+  );
+  const section = (icon, title, children) => (
+    <div style={{ background: "var(--surface)", border: "1.5px solid var(--border)",
+      borderRadius: 10, padding: "20px 22px", marginBottom: 16 }}>
+      <div style={{ fontFamily: "Arial, sans-serif", fontSize: 13, fontWeight: 700,
+        color: "var(--navy)", marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
+        {icon} {title}
+      </div>
+      {children}
+    </div>
+  );
+  const fo = (k, placeholder, rows=1) => (
+    <textarea value={form[k]} onChange={e => set(k, e.target.value)} placeholder={placeholder}
+      rows={rows} style={{ ...inputStyle, resize: "vertical", lineHeight: 1.6 }}
+      onFocus={e => e.target.style.borderColor="var(--navy)"}
+      onBlur={e => e.target.style.borderColor="var(--border)"} />
+  );
+  const fi = (k, placeholder, type="text") => (
+    <input type={type} value={form[k]} onChange={e => set(k, e.target.value)}
+      placeholder={placeholder} style={inputStyle}
+      onFocus={e => e.target.style.borderColor="var(--navy)"}
+      onBlur={e => e.target.style.borderColor="var(--border)"} />
+  );
 
   return (
     <div>
-      {/* Section 1 — Infos */}
-      <div style={sectionStyle}>
-        <div style={sectionTitle}>📅 Informations du dimanche</div>
+      {/* Info section — always shown */}
+      {section("📅", "Informations du dimanche",
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-          <div>
-            <label style={labelStyle}>Date du culte</label>
-            <input type="date" value={form.date} onChange={e => set("date", e.target.value)}
-              style={inputStyle} onFocus={e => e.target.style.borderColor="var(--navy)"}
-              onBlur={e => e.target.style.borderColor="var(--border)"} />
-          </div>
-          <div>
-            <label style={labelStyle}>Numéro d'article</label>
-            <input type="number" value={form.articleNum} onChange={e => set("articleNum", e.target.value)}
-              placeholder="075" min="1" style={inputStyle}
-              onFocus={e => e.target.style.borderColor="var(--navy)"}
-              onBlur={e => e.target.style.borderColor="var(--border)"} />
-          </div>
-          <div>
-            <label style={labelStyle}>Catégorie</label>
-            <select value={form.category} onChange={e => set("category", e.target.value)}
-              style={{ ...inputStyle, cursor: "pointer" }}>
-              {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </div>
-          <div>
-            <label style={labelStyle}>Prédicateur principal</label>
-            <input type="text" value={form.preacher} onChange={e => set("preacher", e.target.value)}
-              style={inputStyle} onFocus={e => e.target.style.borderColor="var(--navy)"}
-              onBlur={e => e.target.style.borderColor="var(--border)"} />
-          </div>
-          <div>
-            <label style={labelStyle}>Lien YouTube — Message principal</label>
-            <input type="url" value={form.youtube1} onChange={e => set("youtube1", e.target.value)}
-              placeholder="https://youtube.com/watch?v=..." style={inputStyle}
-              onFocus={e => e.target.style.borderColor="var(--navy)"}
-              onBlur={e => e.target.style.borderColor="var(--border)"} />
-          </div>
-          <div>
-            <label style={labelStyle}>Lien YouTube — 2ème message (optionnel)</label>
-            <input type="url" value={form.youtube2} onChange={e => set("youtube2", e.target.value)}
-              placeholder="https://youtube.com/watch?v=..." style={inputStyle}
-              onFocus={e => e.target.style.borderColor="var(--navy)"}
-              onBlur={e => e.target.style.borderColor="var(--border)"} />
-          </div>
-          <div style={{ gridColumn: "1 / -1" }}>
-            <label style={labelStyle}>Sujets de prière (optionnel — séparés par des virgules)</label>
-            <input type="text" value={form.prayerTopics} onChange={e => set("prayerTopics", e.target.value)}
-              placeholder="Ex : Les familles de l'église, Les malades, Les nations..."
-              style={inputStyle} onFocus={e => e.target.style.borderColor="var(--navy)"}
-              onBlur={e => e.target.style.borderColor="var(--border)"} />
-          </div>
+          <div>{label("Date du culte")}<input type="date" value={form.date} onChange={e => set("date", e.target.value)} style={inputStyle} onFocus={e => e.target.style.borderColor="var(--navy)"} onBlur={e => e.target.style.borderColor="var(--border)"} /></div>
+          <div>{label("Numéro d'article")}<input type="number" value={form.articleNum} onChange={e => set("articleNum", e.target.value)} placeholder="075" min="1" style={inputStyle} onFocus={e => e.target.style.borderColor="var(--navy)"} onBlur={e => e.target.style.borderColor="var(--border)"} /></div>
+          <div>{label("Catégorie")}<select value={form.category} onChange={e => set("category", e.target.value)} style={{ ...inputStyle, cursor: "pointer" }}>{CATEGORIES.map(c => <option key={c}>{c}</option>)}</select></div>
+          <div>{label("Prédicateur")}{fi("preacher", "Dr. Raoul Wafo")}</div>
+          <div>{label("YouTube — Message principal")}{fi("youtube1", "https://youtube.com/watch?v=...", "url")}</div>
+          <div>{label("YouTube — 2ème message (opt.)")}{fi("youtube2", "https://youtube.com/watch?v=...", "url")}</div>
+          <div style={{ gridColumn: "1 / -1" }}>{label("Sujets de prière (optionnel)")}{fi("prayerTopics", "Ex : Les familles, Les malades, Les nations...")}</div>
         </div>
-      </div>
+      )}
 
-      {/* Section 2 — Notes par partie */}
-      <div style={sectionStyle}>
-        <div style={sectionTitle}>✍️ Notes du message</div>
+      {/* Mode toggle */}
+      <div style={{ display: "flex", borderRadius: 8, overflow: "hidden", border: "1.5px solid var(--border)", marginBottom: 16 }}>
         {[
-          { key: "notesI", label: "Partie I — Points clés, versets, idées", required: true },
-          { key: "notesII", label: "Partie II — Points clés, versets, idées", required: true },
-          { key: "notesIII", label: "Partie III — Points clés, versets, idées", required: true },
-          { key: "notesIV", label: "Partie IV (optionnel)", required: false },
-        ].map(({ key, label, required }) => (
-          <div key={key} style={{ marginBottom: 14 }}>
-            <label style={labelStyle}>{label} {required && <span style={{ color: "var(--red)" }}>*</span>}</label>
-            <textarea value={form[key]} onChange={e => set(key, e.target.value)}
-              placeholder="Notes, versets bibliques, points clés..."
-              rows={3} style={{ ...inputStyle, resize: "vertical", lineHeight: 1.6 }}
-              onFocus={e => e.target.style.borderColor="var(--navy)"}
-              onBlur={e => e.target.style.borderColor="var(--border)"} />
-          </div>
+          { id: "structured", label: "✍️ Par rubriques" },
+          { id: "free", label: "📋 Bloc libre" },
+        ].map(m => (
+          <button key={m.id} onClick={() => setInputMode(m.id)} style={{
+            flex: 1, padding: "10px 0", border: "none",
+            background: inputMode === m.id ? "var(--navy)" : "var(--bg)",
+            color: inputMode === m.id ? "white" : "var(--text-muted)",
+            fontSize: 14, fontFamily: "Arial, sans-serif", fontWeight: 600, cursor: "pointer",
+          }}>{m.label}</button>
         ))}
       </div>
 
-      {/* Section 3 — Citations & Conclusion */}
-      <div style={sectionStyle}>
-        <div style={sectionTitle}>💬 Citations & Conclusion</div>
-        <div style={{ marginBottom: 14 }}>
-          <label style={labelStyle}>Citations importantes du prédicateur <span style={{ color: "var(--red)" }}>*</span></label>
-          <textarea value={form.citations} onChange={e => set("citations", e.target.value)}
-            placeholder={"Ex : «Le bonheur ne vient pas d'autrui mais de la conception qu'on a de soi-même»\n«La soumission c'est se placer volontairement sous l'autorité de quelqu'un»"}
-            rows={4} style={{ ...inputStyle, resize: "vertical", lineHeight: 1.6 }}
+      {inputMode === "free" ? (
+        <div style={{ background: "var(--surface)", border: "1.5px solid var(--border)", borderRadius: 10, padding: "20px 22px", marginBottom: 16 }}>
+          <div style={{ fontFamily: "Arial, sans-serif", fontSize: 13, fontWeight: 700, color: "var(--navy)", marginBottom: 8 }}>
+            📋 Colle toutes tes notes en un seul bloc
+          </div>
+          <p style={{ fontFamily: "Arial, sans-serif", fontSize: 12, color: "var(--text-muted)", marginBottom: 12 }}>
+            Titre, points clés, citations, versets, conclusion… tout d'un coup, Claude structurera.
+          </p>
+          <textarea value={freeText} onChange={e => setFreeText(e.target.value)}
+            placeholder={"Exemple :\nTitre : La puissance de la louange\nI — Louer avant de voir le miracle\n- Josaphat en 2 Chron 20...\nCitation Wafo : «Quand tu loues tu proclames...»\n..."}
+            rows={14} style={{ ...inputStyle, resize: "vertical", lineHeight: 1.65 }}
             onFocus={e => e.target.style.borderColor="var(--navy)"}
             onBlur={e => e.target.style.borderColor="var(--border)"} />
         </div>
-        <div>
-          <label style={labelStyle}>Idées pour la conclusion</label>
-          <textarea value={form.conclusion} onChange={e => set("conclusion", e.target.value)}
-            placeholder="Message final, appel à l'action, verset de clôture..."
-            rows={3} style={{ ...inputStyle, resize: "vertical", lineHeight: 1.6 }}
-            onFocus={e => e.target.style.borderColor="var(--navy)"}
-            onBlur={e => e.target.style.borderColor="var(--border)"} />
-        </div>
-      </div>
+      ) : (
+        <>
+          {section("📝", "Notes du message",
+            <>
+              <div style={{ marginBottom: 14 }}>{label("Introduction (optionnel)")}{fo("intro", "Contexte du message, occasion, accroche...", 2)}</div>
+              {[
+                { key: "notesI", label: "Partie I — Points clés, versets", req: true },
+                { key: "notesII", label: "Partie II — Points clés, versets", req: true },
+                { key: "notesIII", label: "Partie III — Points clés, versets", req: true },
+                { key: "notesIV", label: "Partie IV (optionnel)", req: false },
+              ].map(({ key, label: lbl, req }) => (
+                <div key={key} style={{ marginBottom: 14 }}>
+                  {label(lbl, req)}{fo(key, "Notes, versets, points clés...", 3)}
+                </div>
+              ))}
+            </>
+          )}
+          {section("💬", "Citations & Conclusion",
+            <>
+              <div style={{ marginBottom: 14 }}>{label("Citations importantes", true)}{fo("citations", "«Le bonheur ne vient pas d'autrui...»\n«La soumission c'est se placer volontairement...»", 4)}</div>
+              <div>{label("Idées pour la conclusion")}{fo("conclusion", "Message final, appel à l'action, verset de clôture...", 3)}</div>
+            </>
+          )}
+        </>
+      )}
 
       <div style={{ display: "flex", justifyContent: "flex-end" }}>
         <button onClick={() => onGenerate(buildNotes(), form)} disabled={!canSubmit || loading}
-          style={{
-            background: !canSubmit || loading ? "#ccc" : "var(--navy)",
-            color: "white", border: "none", borderRadius: 8, padding: "13px 36px",
-            fontSize: 15, fontFamily: "Arial, sans-serif", fontWeight: 700,
-            display: "inline-flex", alignItems: "center", gap: 8, cursor: !canSubmit || loading ? "not-allowed" : "pointer",
-          }}>
-          {loading ? <><span className="spinner" /> Génération en cours...</> : "Générer l'article FR →"}
+          style={{ background: !canSubmit || loading ? "#ccc" : "var(--navy)", color: "white",
+            border: "none", borderRadius: 8, padding: "13px 36px", fontSize: 15,
+            fontFamily: "Arial, sans-serif", fontWeight: 700, cursor: !canSubmit || loading ? "not-allowed" : "pointer",
+            display: "inline-flex", alignItems: "center", gap: 8 }}>
+          {loading ? <><span className="spinner" /> Génération...</> : "Générer l'article FR →"}
         </button>
       </div>
     </div>

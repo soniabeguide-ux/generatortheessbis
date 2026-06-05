@@ -38,99 +38,79 @@ export default function AuthScreen({ onAuth }) {
       backgroundImage: "url('/auth-bg.jpg')",
       backgroundSize: "cover", backgroundPosition: "center",
     }}>
-      {/* Dark overlay */}
+      {/* Subtle dark vignette only — no blue overlay */}
       <div style={{
         position: "absolute", inset: 0,
-        background: "linear-gradient(135deg, rgba(27,43,94,0.82) 0%, rgba(10,20,50,0.75) 100%)",
-        backdropFilter: "blur(1px)",
+        background: "linear-gradient(to bottom, rgba(0,0,0,0.25) 0%, rgba(0,0,0,0.45) 100%)",
       }} />
 
       <div style={{
         textAlign: "center", position: "relative", zIndex: 1,
-        display: "flex", flexDirection: "column", alignItems: "center", gap: 0,
+        display: "flex", flexDirection: "column", alignItems: "center",
+        background: "rgba(255,255,255,0.12)",
+        backdropFilter: "blur(12px)",
+        borderRadius: 24,
+        border: "1px solid rgba(255,255,255,0.25)",
+        padding: "48px 52px",
+        boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
+        minWidth: 320,
       }}>
-        {/* Logo — cliquable 3x */}
-        <div
-          onClick={handleLogoClick}
-          style={{
-            cursor: "pointer", marginBottom: 32,
-            transform: clicks > 0 && clicks < 3 ? `scale(${1 + clicks * 0.03})` : "scale(1)",
-            transition: "transform 0.2s",
-          }}
-          title={clicks < 3 ? `${3 - clicks} clic(s) restant(s)` : ""}
-        >
-          <img
-            src="/logo.png"
-            alt="The Essentials"
-            style={{
-              width: 140, height: 140, objectFit: "contain",
-              borderRadius: 20, background: "white", padding: 16,
-              boxShadow: clicks > 0 ? "0 0 30px rgba(200,169,81,0.4)" : "0 8px 32px rgba(0,0,0,0.3)",
-              transition: "box-shadow 0.3s",
-            }}
-          />
-          {/* Dots indicator */}
-          <div style={{ display: "flex", justifyContent: "center", gap: 8, marginTop: 16 }}>
-            {[1,2,3].map(n => (
-              <div key={n} style={{
-                width: 8, height: 8, borderRadius: "50%",
-                background: clicks >= n ? "#C8A951" : "rgba(255,255,255,0.2)",
-                transition: "background 0.3s",
-              }} />
-            ))}
-          </div>
+        {/* Logo — cliquable 3x, discret */}
+        <div onClick={handleLogoClick} style={{ cursor: "pointer", marginBottom: 24 }}>
+          <img src="/logo.png" alt="The Essentials"
+            style={{ width: 120, height: 120, objectFit: "contain", borderRadius: 16,
+              background: "white", padding: 14,
+              boxShadow: "0 4px 20px rgba(0,0,0,0.2)",
+              transition: "transform 0.15s",
+              transform: clicks > 0 && clicks < 3 ? "scale(1.04)" : "scale(1)",
+            }} />
+          {/* Dots — visibles seulement si on a cliqué */}
+          {clicks > 0 && (
+            <div style={{ display: "flex", justifyContent: "center", gap: 7, marginTop: 10 }}>
+              {[1,2,3].map(n => (
+                <div key={n} style={{
+                  width: 7, height: 7, borderRadius: "50%",
+                  background: clicks >= n ? "#C8A951" : "rgba(255,255,255,0.35)",
+                  transition: "background 0.3s",
+                }} />
+              ))}
+            </div>
+          )}
         </div>
 
-        <h1 style={{
-          fontFamily: "'Playfair Display', Georgia, serif",
-          fontSize: 28, color: "white", margin: "0 0 6px", letterSpacing: "-0.5px",
-        }}>
+        <h1 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 26,
+          color: "white", margin: "0 0 4px", letterSpacing: "-0.5px",
+          textShadow: "0 1px 4px rgba(0,0,0,0.3)" }}>
           The <span style={{ color: "#C8A951" }}>Essentials.</span>
         </h1>
-        <p style={{
-          fontFamily: "Arial, sans-serif", fontSize: 11, color: "rgba(255,255,255,0.4)",
-          letterSpacing: "2px", textTransform: "uppercase", margin: "0 0 40px",
-        }}>
+        <p style={{ fontFamily: "Arial, sans-serif", fontSize: 11, color: "rgba(255,255,255,0.6)",
+          letterSpacing: "2px", textTransform: "uppercase", margin: "0 0 32px" }}>
           Générateur d'articles — SBE
         </p>
 
-        {!showInput && (
-          <p style={{
-            fontFamily: "Arial, sans-serif", fontSize: 12,
-            color: "rgba(255,255,255,0.3)", letterSpacing: "1px",
-          }}>
-            CLIQUE 3× SUR LE LOGO
-          </p>
-        )}
-
         {showInput && (
-          <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, width: 280 }}>
-            <input
-              ref={inputRef}
-              type="password"
-              value={pwd}
+          <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, width: 260 }}>
+            <input ref={inputRef} type="password" value={pwd}
               onChange={e => { setPwd(e.target.value); setError(false); }}
-              placeholder="Mot de passe"
+              placeholder="••••••••••"
               style={{
-                width: "100%", padding: "14px 18px", fontSize: 15,
-                borderRadius: 10, border: error ? "2px solid #C0392B" : "2px solid rgba(255,255,255,0.2)",
-                background: "rgba(255,255,255,0.08)", color: "white",
+                width: "100%", padding: "13px 18px", fontSize: 16,
+                borderRadius: 10, border: error ? "2px solid #ff6b6b" : "2px solid rgba(255,255,255,0.3)",
+                background: "rgba(255,255,255,0.15)", color: "white",
                 fontFamily: "Arial, sans-serif", outline: "none", textAlign: "center",
-                letterSpacing: "3px",
+                letterSpacing: "4px", backdropFilter: "blur(4px)",
                 animation: shake ? "shake 0.5s ease" : "none",
               }}
               autoComplete="current-password"
             />
-            {error && (
-              <p style={{ color: "#ff6b6b", fontSize: 12, fontFamily: "Arial, sans-serif", margin: 0 }}>
-                Mot de passe incorrect
-              </p>
-            )}
+            {error && <p style={{ color: "#ff9a9a", fontSize: 12, fontFamily: "Arial, sans-serif", margin: 0 }}>
+              Mot de passe incorrect
+            </p>}
             <button type="submit" style={{
               width: "100%", padding: "13px", background: "#C8A951", color: "white",
               border: "none", borderRadius: 10, fontSize: 14, fontWeight: 700,
               fontFamily: "Arial, sans-serif", cursor: "pointer", letterSpacing: "1px",
-              textTransform: "uppercase",
+              textTransform: "uppercase", boxShadow: "0 4px 14px rgba(200,169,81,0.4)",
             }}>
               Accéder →
             </button>
@@ -140,11 +120,8 @@ export default function AuthScreen({ onAuth }) {
 
       <style>{`
         @keyframes shake {
-          0%,100%{transform:translateX(0)}
-          20%{transform:translateX(-8px)}
-          40%{transform:translateX(8px)}
-          60%{transform:translateX(-5px)}
-          80%{transform:translateX(5px)}
+          0%,100%{transform:translateX(0)} 20%{transform:translateX(-8px)}
+          40%{transform:translateX(8px)} 60%{transform:translateX(-5px)} 80%{transform:translateX(5px)}
         }
       `}</style>
     </div>
